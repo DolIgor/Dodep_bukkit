@@ -1,0 +1,11 @@
+webhook:
+  host: 0.0.0.0
+  port: 8787
+  path: /donationalerts
+  token: ""
+
+items:
+  thousands: casinochips:rich_7
+  hundreds: casinochips:rich_5
+  tens: casinochips:rich_3
+  ones: casinochips:rich
