@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -35,8 +36,11 @@ public class DonationWebhookHandler implements HttpHandler {
             return;
         }
 
-        String expectedToken = plugin.getConfig().getString("webhook.token", "");
+        String expectedToken = plugin.getEffectiveWebhookToken();
         String incomingToken = Optional.ofNullable(exchange.getRequestHeaders().getFirst("X-DA-Token")).orElse("");
+        if (incomingToken.isBlank()) {
+            incomingToken = readQueryParam(exchange.getRequestURI().getQuery(), "token");
+        }
         if (!expectedToken.isBlank() && !expectedToken.equals(incomingToken)) {
             donationLogger.warning("Rejected webhook request: invalid token");
             respond(exchange, 403, "Forbidden");
@@ -166,6 +170,19 @@ public class DonationWebhookHandler implements HttpHandler {
         exchange.sendResponseHeaders(code, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();
+    }
+
+    private String readQueryParam(String query, String key) {
+        if (query == null || query.isBlank()) {
+            return "";
+        }
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 2 && key.equals(parts[0])) {
+                return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
+            }
+        }
+        return "";
     }
 
     private record DonationPayload(String playerName, int amount) {

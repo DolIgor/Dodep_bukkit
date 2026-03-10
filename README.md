@@ -35,6 +35,22 @@
 3. Отредактируй `plugins/DodepPlugin/config.yml` (webhook host/port/path/token и ID предметов).
 4. Перезапусти сервер повторно.
 
+## Настройка webhook/token (простыми словами)
+- `webhook.host`, `webhook.port`, `webhook.path` — это адрес, где плагин ждёт входящий POST.
+- `webhook.token` — секрет для проверки заголовка `X-DA-Token`.
+
+Если не хочешь руками искать токен, можно вставить OBS ссылку в:
+
+```yml
+donationalerts:
+  widget-url: "https://www.donationalerts.com/widget/alerts?group_id=1&token=..."
+```
+
+Тогда плагин автоматически возьмёт `token=...` из этой ссылки как webhook token
+(только если `webhook.token` оставлен пустым).
+
+Дополнительно: плагин принимает токен либо из заголовка `X-DA-Token`, либо как query-параметр `?token=...`.
+
 ## Важно
 - Если в GitHub репо “пусто”, обычно это значит, что код ещё не отправлен (`git push` не выполнен).
 - Если локальная сборка не проходит из-за сети/блокировок, используй GitHub Actions — там jar обычно собирается без проблем.

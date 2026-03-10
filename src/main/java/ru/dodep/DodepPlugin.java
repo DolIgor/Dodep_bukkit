@@ -5,6 +5,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -64,5 +68,36 @@ public final class DodepPlugin extends JavaPlugin {
         } catch (IOException e) {
             getLogger().log(Level.SEVERE, "Failed to start webhook server", e);
         }
+    }
+
+    public String getEffectiveWebhookToken() {
+        String configToken = getConfig().getString("webhook.token", "");
+        if (configToken != null && !configToken.isBlank()) {
+            return configToken;
+        }
+
+        String widgetUrl = getConfig().getString("donationalerts.widget-url", "");
+        if (widgetUrl == null || widgetUrl.isBlank()) {
+            return "";
+        }
+
+        try {
+            URI uri = new URI(widgetUrl);
+            String query = uri.getQuery();
+            if (query == null || query.isBlank()) {
+                return "";
+            }
+
+            for (String pair : query.split("&")) {
+                String[] parts = pair.split("=", 2);
+                if (parts.length == 2 && "token".equals(parts[0])) {
+                    return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
+                }
+            }
+        } catch (URISyntaxException e) {
+            getLogger().warning("Invalid donationalerts.widget-url in config: " + e.getMessage());
+        }
+
+        return "";
     }
 }

@@ -4,6 +4,13 @@ webhook:
   path: /donationalerts
   token: ""
 
+donationalerts:
+  # Можно вставить OBS ссылку вида
+  # https://www.donationalerts.com/widget/alerts?group_id=1&token=XXXX
+  # Плагин автоматически вытащит query-параметр token и будет использовать его как webhook token,
+  # если webhook.token пустой.
+  widget-url: ""
+
 items:
   thousands: casinochips:rich_7
   hundreds: casinochips:rich_5
