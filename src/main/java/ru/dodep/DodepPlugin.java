@@ -2,6 +2,7 @@ package ru.dodep;
 
 import com.sun.net.httpserver.HttpServer;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.command.PluginCommand;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,12 +24,33 @@ public final class DodepPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        getLogger().info("onEnable() start");
         saveDefaultConfig();
         this.donationLogger = createDonationLogger();
         startWebhookServer();
-        if (getCommand("dodeptest") != null && webhookHandler != null) {
-            getCommand("dodeptest").setExecutor(new DodepTestCommand(webhookHandler));
+        PluginCommand testCommand = getCommand("dodeptest");
+        if (testCommand == null || webhookHandler == null) {
+            getLogger().severe("dodeptest command registration failed or webhook handler is null. Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
+        testCommand.setExecutor(new DodepTestCommand(webhookHandler));
+
+        PluginCommand statusCommand = getCommand("dodepstatus");
+        if (statusCommand == null) {
+            getLogger().severe("dodepstatus command registration failed. Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        statusCommand.setExecutor((sender, command, label, args) -> {
+            String host = getConfig().getString("webhook.host", "0.0.0.0");
+            int port = getConfig().getInt("webhook.port", 8787);
+            String path = getConfig().getString("webhook.path", "/donationalerts");
+            boolean configured = !getEffectiveWebhookToken().isBlank();
+            sender.sendMessage("[Dodep] loaded=true endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
+            return true;
+        });
+
         logStartupDiagnostics();
         getLogger().info("DodepPlugin enabled");
     }

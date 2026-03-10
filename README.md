@@ -64,6 +64,11 @@ donationalerts:
 4. Тест в игре (самый важный):
    - выполни `/dodeptest <твой_ник> 1234`
    - если это сработало (чат + выдача), значит плагин исправен, проблема только во внешнем webhook.
+5. Статус плагина:
+   - выполни `/dodepstatus`
+   - должно показать `loaded=true`, endpoint и `tokenConfigured=true/false`.
+
+Если `/dodeptest` и `/dodepstatus` не существуют — плагин не загрузился (или загружен не тот jar).
 
 Примечание: ссылка `https://www.donationalerts.com/widget/alerts?...` сама по себе не отправляет webhook в плагин.
 Она используется для OBS-виджета. Для плагина нужен входящий запрос на адрес из `webhook.host/port/path`.

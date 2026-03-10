@@ -9,7 +9,14 @@ commands:
     description: Manual test donation processing
     usage: /dodeptest <player> <amount>
     permission: dodep.test
+  dodepstatus:
+    description: Shows plugin status and webhook endpoint
+    usage: /dodepstatus
+    permission: dodep.status
 permissions:
   dodep.test:
     description: Allows running /dodeptest
+    default: op
+  dodep.status:
+    description: Allows running /dodepstatus
     default: op
