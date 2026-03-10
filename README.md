@@ -68,6 +68,11 @@ donationalerts:
    - выполни `/dodepstatus`
    - должно показать `loaded=true`, endpoint и `tokenConfigured=true/false`.
 
+6. Принудительная перезагрузка конфига плагина:
+   - выполни `/dodepreload`
+   - затем снова `/dodepstatus`
+   - в статусе смотри `configuredPort`, `activePort`, `configFile`, `configExists`, `lastModified`.
+
 Если `/dodeptest` и `/dodepstatus` не существуют — плагин не загрузился (или загружен не тот jar).
 
 - Если видишь `Address already in use`, значит порт занят другим процессом.

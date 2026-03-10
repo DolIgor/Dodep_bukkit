@@ -4,12 +4,14 @@ import com.sun.net.httpserver.HttpServer;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.PluginCommand;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -45,14 +47,29 @@ public final class DodepPlugin extends JavaPlugin {
         } else {
             statusCommand.setExecutor((sender, command, label, args) -> {
                 String host = getConfig().getString("webhook.host", "0.0.0.0");
-                int port = activeWebhookPort > 0 ? activeWebhookPort : getConfig().getInt("webhook.port", 8787);
+                int configuredPort = getConfig().getInt("webhook.port", 8787);
+                int port = activeWebhookPort > 0 ? activeWebhookPort : configuredPort;
                 String path = getConfig().getString("webhook.path", "/donationalerts");
                 boolean configured = !getEffectiveWebhookToken().isBlank();
                 boolean webhookUp = webhookServer != null;
+                File configFile = new File(getDataFolder(), "config.yml");
                 sender.sendMessage("[Dodep] loaded=true webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
+                sender.sendMessage("[Dodep] configuredPort=" + configuredPort + " activePort=" + activeWebhookPort + " configFile=" + configFile.getAbsolutePath());
+                sender.sendMessage("[Dodep] configExists=" + configFile.exists() + " lastModified=" + (configFile.exists() ? Instant.ofEpochMilli(configFile.lastModified()) : "-") + " widgetUrlPresent=" + !getConfig().getString("donationalerts.widget-url", "").isBlank());
                 if (!startupIssue.isBlank()) {
                     sender.sendMessage("[Dodep] startupIssue=" + startupIssue);
                 }
+                return true;
+            });
+        }
+
+        PluginCommand reloadCommand = getCommand("dodepreload");
+        if (reloadCommand == null) {
+            getLogger().severe("dodepreload command is missing in plugin.yml");
+        } else {
+            reloadCommand.setExecutor((sender, command, label, args) -> {
+                reloadPluginConfigAndServer();
+                sender.sendMessage("[Dodep] reload complete. Use /dodepstatus to verify actual config values.");
                 return true;
             });
         }
@@ -129,6 +146,18 @@ public final class DodepPlugin extends JavaPlugin {
         getLogger().log(Level.SEVERE, "Failed to start webhook server", lastError);
     }
 
+
+    private void reloadPluginConfigAndServer() {
+        reloadConfig();
+        startupIssue = "";
+        activeWebhookPort = -1;
+        if (webhookServer != null) {
+            webhookServer.stop(0);
+            webhookServer = null;
+        }
+        startWebhookServer();
+        logStartupDiagnostics();
+    }
 
     private void logStartupDiagnostics() {
         String host = getConfig().getString("webhook.host", "0.0.0.0");

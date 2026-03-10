@@ -13,10 +13,17 @@ commands:
     description: Shows plugin status and webhook endpoint
     usage: /dodepstatus
     permission: dodep.status
+  dodepreload:
+    description: Reload config and restart embedded webhook server
+    usage: /dodepreload
+    permission: dodep.reload
 permissions:
   dodep.test:
     description: Allows running /dodeptest
     default: op
   dodep.status:
     description: Allows running /dodepstatus
+    default: op
+  dodep.reload:
+    description: Allows running /dodepreload
     default: op
