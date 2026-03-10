@@ -4,3 +4,12 @@ main: ru.dodep.DodepPlugin
 api-version: '1.20'
 author: ChatGPT
 description: DonationAlerts webhook rewards for casino chips
+commands:
+  dodeptest:
+    description: Manual test donation processing
+    usage: /dodeptest <player> <amount>
+    permission: dodep.test
+permissions:
+  dodep.test:
+    description: Allows running /dodeptest
+    default: op

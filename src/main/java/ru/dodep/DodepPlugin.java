@@ -19,12 +19,17 @@ import java.util.logging.Logger;
 public final class DodepPlugin extends JavaPlugin {
     private HttpServer webhookServer;
     private Logger donationLogger;
+    private DonationWebhookHandler webhookHandler;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         this.donationLogger = createDonationLogger();
         startWebhookServer();
+        if (getCommand("dodeptest") != null && webhookHandler != null) {
+            getCommand("dodeptest").setExecutor(new DodepTestCommand(webhookHandler));
+        }
+        logStartupDiagnostics();
         getLogger().info("DodepPlugin enabled");
     }
 
@@ -64,7 +69,8 @@ public final class DodepPlugin extends JavaPlugin {
 
         try {
             webhookServer = HttpServer.create(new InetSocketAddress(host, port), 0);
-            webhookServer.createContext(path, new DonationWebhookHandler(this, donationLogger));
+            this.webhookHandler = new DonationWebhookHandler(this, donationLogger);
+            webhookServer.createContext(path, webhookHandler);
             webhookServer.createContext("/health", exchange -> {
                 byte[] body = "OK".getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(200, body.length);
@@ -77,6 +83,23 @@ public final class DodepPlugin extends JavaPlugin {
             getLogger().info("Healthcheck available at http://" + host + ":" + port + "/health");
         } catch (IOException e) {
             getLogger().log(Level.SEVERE, "Failed to start webhook server", e);
+        }
+    }
+
+
+    private void logStartupDiagnostics() {
+        String host = getConfig().getString("webhook.host", "0.0.0.0");
+        int port = getConfig().getInt("webhook.port", 8787);
+        String path = getConfig().getString("webhook.path", "/donationalerts");
+        String token = getEffectiveWebhookToken();
+        String tokenSource = (getConfig().getString("webhook.token", "").isBlank()) ? "donationalerts.widget-url token" : "webhook.token";
+
+        if (webhookServer == null) {
+            getLogger().severe("Webhook server is NOT running. Check port/bind errors above.");
+        } else {
+            getLogger().info("Webhook endpoint: http://" + host + ":" + port + path);
+            getLogger().info("Token source: " + tokenSource + "; token configured=" + (!token.isBlank()));
+            getLogger().info("Manual test in game: /dodeptest <player> <amount>");
         }
     }
 

@@ -75,6 +75,9 @@ public class DonationWebhookHandler implements HttpHandler {
             }
         }
 
+        if (debug) {
+            plugin.getLogger().info("Webhook accepted player=" + payload.playerName() + " amount=" + payload.amount());
+        }
         Bukkit.getScheduler().runTask(plugin, () -> processDonation(payload));
         respond(exchange, 200, "OK");
     }
@@ -138,6 +141,11 @@ public class DonationWebhookHandler implements HttpHandler {
             return readNumber(root.getAsJsonObject("data"), keys);
         }
         return 0;
+    }
+
+    public void triggerDonation(String playerName, int amount, String source) {
+        donationLogger.info("TRIGGER source=" + source + " player=" + playerName + " amount=" + amount);
+        processDonation(new DonationPayload(playerName, amount));
     }
 
     private void processDonation(DonationPayload payload) {
