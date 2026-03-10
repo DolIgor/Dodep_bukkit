@@ -4,6 +4,8 @@ webhook:
   path: /donationalerts
   token: ""
   debug-log-requests: true
+  # Если порт занят, пробовать следующие порты: port+1 ... port+N
+  max-port-retries: 20
 
 donationalerts:
   # Можно вставить OBS ссылку вида

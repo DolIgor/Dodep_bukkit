@@ -70,6 +70,11 @@ donationalerts:
 
 Если `/dodeptest` и `/dodepstatus` не существуют — плагин не загрузился (или загружен не тот jar).
 
+- Если видишь `Address already in use`, значит порт занят другим процессом.
+  - Либо смени `webhook.port`,
+  - либо оставь `webhook.max-port-retries` > 0 и плагин сам подберет следующий свободный порт.
+  - Текущий реальный порт смотри через `/dodepstatus`.
+
 Примечание: ссылка `https://www.donationalerts.com/widget/alerts?...` сама по себе не отправляет webhook в плагин.
 Она используется для OBS-виджета. Для плагина нужен входящий запрос на адрес из `webhook.host/port/path`.
 

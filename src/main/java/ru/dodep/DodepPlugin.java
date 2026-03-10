@@ -22,12 +22,14 @@ public final class DodepPlugin extends JavaPlugin {
     private Logger donationLogger;
     private DonationWebhookHandler webhookHandler;
     private String startupIssue = "";
+    private int activeWebhookPort = -1;
 
     @Override
     public void onEnable() {
         getLogger().info("onEnable() start");
         saveDefaultConfig();
         this.donationLogger = createDonationLogger();
+        this.webhookHandler = new DonationWebhookHandler(this, donationLogger);
         startWebhookServer();
 
         PluginCommand testCommand = getCommand("dodeptest");
@@ -43,7 +45,7 @@ public final class DodepPlugin extends JavaPlugin {
         } else {
             statusCommand.setExecutor((sender, command, label, args) -> {
                 String host = getConfig().getString("webhook.host", "0.0.0.0");
-                int port = getConfig().getInt("webhook.port", 8787);
+                int port = activeWebhookPort > 0 ? activeWebhookPort : getConfig().getInt("webhook.port", 8787);
                 String path = getConfig().getString("webhook.path", "/donationalerts");
                 boolean configured = !getEffectiveWebhookToken().isBlank();
                 boolean webhookUp = webhookServer != null;
@@ -90,33 +92,47 @@ public final class DodepPlugin extends JavaPlugin {
 
     private void startWebhookServer() {
         String host = getConfig().getString("webhook.host", "0.0.0.0");
-        int port = getConfig().getInt("webhook.port", 8787);
+        int configuredPort = getConfig().getInt("webhook.port", 8787);
+        int maxPortRetries = Math.max(0, getConfig().getInt("webhook.max-port-retries", 0));
         String path = getConfig().getString("webhook.path", "/donationalerts");
 
-        try {
-            webhookServer = HttpServer.create(new InetSocketAddress(host, port), 0);
-            this.webhookHandler = new DonationWebhookHandler(this, donationLogger);
-            webhookServer.createContext(path, webhookHandler);
-            webhookServer.createContext("/health", exchange -> {
-                byte[] body = "OK".getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(200, body.length);
-                exchange.getResponseBody().write(body);
-                exchange.getResponseBody().close();
-            });
-            webhookServer.setExecutor(Executors.newFixedThreadPool(2));
-            webhookServer.start();
-            getLogger().info("Webhook listening on http://" + host + ":" + port + path);
-            getLogger().info("Healthcheck available at http://" + host + ":" + port + "/health");
-        } catch (IOException e) {
-            startupIssue = "Failed to start webhook server: " + e.getMessage();
-            getLogger().log(Level.SEVERE, "Failed to start webhook server", e);
+        IOException lastError = null;
+        for (int attempt = 0; attempt <= maxPortRetries; attempt++) {
+            int port = configuredPort + attempt;
+            try {
+                webhookServer = HttpServer.create(new InetSocketAddress(host, port), 0);
+                webhookServer.createContext(path, webhookHandler);
+                webhookServer.createContext("/health", exchange -> {
+                    byte[] body = "OK".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                    exchange.getResponseBody().close();
+                });
+                webhookServer.setExecutor(Executors.newFixedThreadPool(2));
+                webhookServer.start();
+                activeWebhookPort = port;
+                startupIssue = "";
+                if (attempt > 0) {
+                    getLogger().warning("Configured port " + configuredPort + " is busy. Switched to free port " + port);
+                }
+                getLogger().info("Webhook listening on http://" + host + ":" + port + path);
+                getLogger().info("Healthcheck available at http://" + host + ":" + port + "/health");
+                return;
+            } catch (IOException e) {
+                lastError = e;
+                webhookServer = null;
+            }
         }
+
+        activeWebhookPort = -1;
+        startupIssue = "Failed to start webhook server: " + (lastError == null ? "unknown error" : lastError.getMessage());
+        getLogger().log(Level.SEVERE, "Failed to start webhook server", lastError);
     }
 
 
     private void logStartupDiagnostics() {
         String host = getConfig().getString("webhook.host", "0.0.0.0");
-        int port = getConfig().getInt("webhook.port", 8787);
+        int port = activeWebhookPort > 0 ? activeWebhookPort : getConfig().getInt("webhook.port", 8787);
         String path = getConfig().getString("webhook.path", "/donationalerts");
         String token = getEffectiveWebhookToken();
         String tokenSource = (getConfig().getString("webhook.token", "").isBlank()) ? "donationalerts.widget-url token" : "webhook.token";
@@ -136,6 +152,10 @@ public final class DodepPlugin extends JavaPlugin {
 
     public boolean isWebhookAvailable() {
         return webhookHandler != null;
+    }
+
+    public boolean isWebhookServerRunning() {
+        return webhookServer != null;
     }
 
     public void triggerDonationFromCommand(String playerName, int amount, String source) {
