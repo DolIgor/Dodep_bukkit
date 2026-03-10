@@ -6,10 +6,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 public class DodepTestCommand implements CommandExecutor {
-    private final DonationWebhookHandler handler;
+    private final DodepPlugin plugin;
 
-    public DodepTestCommand(DonationWebhookHandler handler) {
-        this.handler = handler;
+    public DodepTestCommand(DodepPlugin plugin) {
+        this.plugin = plugin;
     }
 
     @Override
@@ -38,7 +38,12 @@ public class DodepTestCommand implements CommandExecutor {
             return true;
         }
 
-        handler.triggerDonation(player, amount, "manual-command");
+        if (!plugin.isWebhookAvailable()) {
+            sender.sendMessage(ChatColor.RED + "Плагин загружен, но webhook-обработчик недоступен. Проверь /dodepstatus");
+            return true;
+        }
+
+        plugin.triggerDonationFromCommand(player, amount, "manual-command");
         sender.sendMessage(ChatColor.GREEN + "Тестовый додеп отправлен: " + player + " -> " + amount);
         return true;
     }

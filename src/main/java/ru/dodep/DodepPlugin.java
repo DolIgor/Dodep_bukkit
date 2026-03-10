@@ -21,6 +21,7 @@ public final class DodepPlugin extends JavaPlugin {
     private HttpServer webhookServer;
     private Logger donationLogger;
     private DonationWebhookHandler webhookHandler;
+    private String startupIssue = "";
 
     @Override
     public void onEnable() {
@@ -28,28 +29,31 @@ public final class DodepPlugin extends JavaPlugin {
         saveDefaultConfig();
         this.donationLogger = createDonationLogger();
         startWebhookServer();
+
         PluginCommand testCommand = getCommand("dodeptest");
-        if (testCommand == null || webhookHandler == null) {
-            getLogger().severe("dodeptest command registration failed or webhook handler is null. Disabling plugin.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
+        if (testCommand == null) {
+            getLogger().severe("dodeptest command is missing in plugin.yml");
+        } else {
+            testCommand.setExecutor(new DodepTestCommand(this));
         }
-        testCommand.setExecutor(new DodepTestCommand(webhookHandler));
 
         PluginCommand statusCommand = getCommand("dodepstatus");
         if (statusCommand == null) {
-            getLogger().severe("dodepstatus command registration failed. Disabling plugin.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
+            getLogger().severe("dodepstatus command is missing in plugin.yml");
+        } else {
+            statusCommand.setExecutor((sender, command, label, args) -> {
+                String host = getConfig().getString("webhook.host", "0.0.0.0");
+                int port = getConfig().getInt("webhook.port", 8787);
+                String path = getConfig().getString("webhook.path", "/donationalerts");
+                boolean configured = !getEffectiveWebhookToken().isBlank();
+                boolean webhookUp = webhookServer != null;
+                sender.sendMessage("[Dodep] loaded=true webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
+                if (!startupIssue.isBlank()) {
+                    sender.sendMessage("[Dodep] startupIssue=" + startupIssue);
+                }
+                return true;
+            });
         }
-        statusCommand.setExecutor((sender, command, label, args) -> {
-            String host = getConfig().getString("webhook.host", "0.0.0.0");
-            int port = getConfig().getInt("webhook.port", 8787);
-            String path = getConfig().getString("webhook.path", "/donationalerts");
-            boolean configured = !getEffectiveWebhookToken().isBlank();
-            sender.sendMessage("[Dodep] loaded=true endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
-            return true;
-        });
 
         logStartupDiagnostics();
         getLogger().info("DodepPlugin enabled");
@@ -104,6 +108,7 @@ public final class DodepPlugin extends JavaPlugin {
             getLogger().info("Webhook listening on http://" + host + ":" + port + path);
             getLogger().info("Healthcheck available at http://" + host + ":" + port + "/health");
         } catch (IOException e) {
+            startupIssue = "Failed to start webhook server: " + e.getMessage();
             getLogger().log(Level.SEVERE, "Failed to start webhook server", e);
         }
     }
@@ -118,11 +123,27 @@ public final class DodepPlugin extends JavaPlugin {
 
         if (webhookServer == null) {
             getLogger().severe("Webhook server is NOT running. Check port/bind errors above.");
+            if (!startupIssue.isBlank()) {
+                getLogger().severe("startupIssue=" + startupIssue);
+            }
         } else {
             getLogger().info("Webhook endpoint: http://" + host + ":" + port + path);
             getLogger().info("Token source: " + tokenSource + "; token configured=" + (!token.isBlank()));
             getLogger().info("Manual test in game: /dodeptest <player> <amount>");
         }
+    }
+
+
+    public boolean isWebhookAvailable() {
+        return webhookHandler != null;
+    }
+
+    public void triggerDonationFromCommand(String playerName, int amount, String source) {
+        if (webhookHandler == null) {
+            donationLogger.severe("Cannot trigger donation: webhook handler is unavailable. " + startupIssue);
+            return;
+        }
+        webhookHandler.triggerDonation(playerName, amount, source);
     }
 
     public String getEffectiveWebhookToken() {
