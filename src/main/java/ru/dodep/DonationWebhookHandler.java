@@ -31,7 +31,14 @@ public class DonationWebhookHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+        boolean debug = plugin.getConfig().getBoolean("webhook.debug-log-requests", true);
+        if (debug) {
+            plugin.getLogger().info("Incoming webhook request method=" + exchange.getRequestMethod() + " path=" + exchange.getRequestURI());
+        }
+
+        boolean isPost = "POST".equalsIgnoreCase(exchange.getRequestMethod());
+        boolean isGet = "GET".equalsIgnoreCase(exchange.getRequestMethod());
+        if (!isPost && !isGet) {
             respond(exchange, 405, "Method Not Allowed");
             return;
         }
@@ -42,19 +49,30 @@ public class DonationWebhookHandler implements HttpHandler {
             incomingToken = readQueryParam(exchange.getRequestURI().getQuery(), "token");
         }
         if (!expectedToken.isBlank() && !expectedToken.equals(incomingToken)) {
+            if (debug) {
+                plugin.getLogger().warning("Webhook rejected due to invalid token. Incoming token length=" + incomingToken.length());
+            }
             donationLogger.warning("Rejected webhook request: invalid token");
             respond(exchange, 403, "Forbidden");
             return;
         }
 
-        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         DonationPayload payload;
-        try {
-            payload = parsePayload(body);
-        } catch (IllegalArgumentException e) {
-            donationLogger.warning("Invalid webhook payload: " + e.getMessage());
-            respond(exchange, 400, "Bad Request: " + e.getMessage());
-            return;
+        if (isGet) {
+            payload = parsePayloadFromQuery(exchange.getRequestURI().getQuery());
+            if (payload == null) {
+                respond(exchange, 400, "Bad Request: use ?player=Nick&amount=1234");
+                return;
+            }
+        } else {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            try {
+                payload = parsePayload(body);
+            } catch (IllegalArgumentException e) {
+                donationLogger.warning("Invalid webhook payload: " + e.getMessage());
+                respond(exchange, 400, "Bad Request: " + e.getMessage());
+                return;
+            }
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> processDonation(payload));
@@ -87,6 +105,26 @@ public class DonationWebhookHandler implements HttpHandler {
             return readString(root.getAsJsonObject("data"), keys);
         }
         return null;
+    }
+
+    private DonationPayload parsePayloadFromQuery(String query) {
+        String player = readQueryParam(query, "player");
+        String amountString = readQueryParam(query, "amount");
+        if (player.isBlank() || amountString.isBlank()) {
+            return null;
+        }
+
+        int amount;
+        try {
+            amount = Integer.parseInt(amountString);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+
+        if (amount <= 0) {
+            return null;
+        }
+        return new DonationPayload(player, amount);
     }
 
     private double readNumber(JsonObject root, String... keys) {

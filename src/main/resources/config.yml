@@ -3,6 +3,7 @@ webhook:
   port: 8787
   path: /donationalerts
   token: ""
+  debug-log-requests: true
 
 donationalerts:
   # Можно вставить OBS ссылку вида

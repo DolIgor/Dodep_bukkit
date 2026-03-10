@@ -38,8 +38,11 @@ public final class DodepPlugin extends JavaPlugin {
 
     private Logger createDonationLogger() {
         Logger logger = Logger.getLogger("DodepDonations");
-        logger.setUseParentHandlers(false);
+        logger.setUseParentHandlers(true);
         try {
+            if (!getDataFolder().exists() && !getDataFolder().mkdirs()) {
+                getLogger().warning("Failed to create plugin data folder: " + getDataFolder().getAbsolutePath());
+            }
             FileHandler fileHandler = new FileHandler(getDataFolder().toPath().resolve("donations.log").toString(), true);
             fileHandler.setFormatter(new Formatter() {
                 @Override
@@ -62,9 +65,16 @@ public final class DodepPlugin extends JavaPlugin {
         try {
             webhookServer = HttpServer.create(new InetSocketAddress(host, port), 0);
             webhookServer.createContext(path, new DonationWebhookHandler(this, donationLogger));
+            webhookServer.createContext("/health", exchange -> {
+                byte[] body = "OK".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.getResponseBody().close();
+            });
             webhookServer.setExecutor(Executors.newFixedThreadPool(2));
             webhookServer.start();
             getLogger().info("Webhook listening on http://" + host + ":" + port + path);
+            getLogger().info("Healthcheck available at http://" + host + ":" + port + "/health");
         } catch (IOException e) {
             getLogger().log(Level.SEVERE, "Failed to start webhook server", e);
         }
