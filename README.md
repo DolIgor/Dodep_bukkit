@@ -86,3 +86,27 @@ donationalerts:
 ## Важно
 - Если в GitHub репо “пусто”, обычно это значит, что код ещё не отправлен (`git push` не выполнен).
 - Если локальная сборка не проходит из-за сети/блокировок, используй GitHub Actions — там jar обычно собирается без проблем.
+
+
+## Режим polling (без входящего webhook)
+Если хостинг не позволяет удобно принимать внешние webhook запросы, можно использовать polling:
+
+1. В `plugins/DodepPlugin/config.yml` поставить:
+   ```yml
+   mode: polling
+   polling:
+     interval-seconds: 20
+     api-url: "<URL метода DA API со списком донатов>"
+     token: "<API токен>"
+     token-header: Authorization
+     token-prefix: "Bearer "
+     list-path: data
+     fields:
+       id: id
+       player: username
+       amount: amount
+   ```
+2. Выполнить `/dodepreload`.
+3. Проверить `/dodepstatus` — там должен быть `mode=polling` и `pollingStatus=...`.
+
+Плагин запоминает `polling.last-seen-id` и не обрабатывает старые события повторно.

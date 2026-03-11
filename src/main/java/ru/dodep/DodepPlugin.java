@@ -25,6 +25,7 @@ public final class DodepPlugin extends JavaPlugin {
     private DonationWebhookHandler webhookHandler;
     private String startupIssue = "";
     private int activeWebhookPort = -1;
+    private DonationPollingService pollingService;
 
     @Override
     public void onEnable() {
@@ -32,7 +33,15 @@ public final class DodepPlugin extends JavaPlugin {
         saveDefaultConfig();
         this.donationLogger = createDonationLogger();
         this.webhookHandler = new DonationWebhookHandler(this, donationLogger);
-        startWebhookServer();
+        this.pollingService = new DonationPollingService(this, webhookHandler, donationLogger);
+
+        String mode = getConfig().getString("mode", "webhook");
+        if ("polling".equalsIgnoreCase(mode)) {
+            getLogger().info("Running in polling mode");
+            pollingService.start();
+        } else {
+            startWebhookServer();
+        }
 
         PluginCommand testCommand = getCommand("dodeptest");
         if (testCommand == null) {
@@ -46,6 +55,7 @@ public final class DodepPlugin extends JavaPlugin {
             getLogger().severe("dodepstatus command is missing in plugin.yml");
         } else {
             statusCommand.setExecutor((sender, command, label, args) -> {
+                String mode = getConfig().getString("mode", "webhook");
                 String host = getConfig().getString("webhook.host", "0.0.0.0");
                 int configuredPort = getConfig().getInt("webhook.port", 8787);
                 int port = activeWebhookPort > 0 ? activeWebhookPort : configuredPort;
@@ -53,9 +63,12 @@ public final class DodepPlugin extends JavaPlugin {
                 boolean configured = !getEffectiveWebhookToken().isBlank();
                 boolean webhookUp = webhookServer != null;
                 File configFile = new File(getDataFolder(), "config.yml");
-                sender.sendMessage("[Dodep] loaded=true webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
+                sender.sendMessage("[Dodep] loaded=true mode=" + mode + " webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
                 sender.sendMessage("[Dodep] configuredPort=" + configuredPort + " activePort=" + activeWebhookPort + " configFile=" + configFile.getAbsolutePath());
                 sender.sendMessage("[Dodep] configExists=" + configFile.exists() + " lastModified=" + (configFile.exists() ? Instant.ofEpochMilli(configFile.lastModified()) : "-") + " widgetUrlPresent=" + !getConfig().getString("donationalerts.widget-url", "").isBlank());
+                if (pollingService != null) {
+                    sender.sendMessage("[Dodep] pollingStatus=" + pollingService.getLastPollStatus());
+                }
                 if (!startupIssue.isBlank()) {
                     sender.sendMessage("[Dodep] startupIssue=" + startupIssue);
                 }
@@ -80,6 +93,9 @@ public final class DodepPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (pollingService != null) {
+            pollingService.stop();
+        }
         if (webhookServer != null) {
             webhookServer.stop(0);
         }
@@ -108,6 +124,7 @@ public final class DodepPlugin extends JavaPlugin {
     }
 
     private void startWebhookServer() {
+        String mode = getConfig().getString("mode", "webhook");
         String host = getConfig().getString("webhook.host", "0.0.0.0");
         int configuredPort = getConfig().getInt("webhook.port", 8787);
         int maxPortRetries = Math.max(0, getConfig().getInt("webhook.max-port-retries", 0));
@@ -155,16 +172,31 @@ public final class DodepPlugin extends JavaPlugin {
             webhookServer.stop(0);
             webhookServer = null;
         }
-        startWebhookServer();
+        String mode = getConfig().getString("mode", "webhook");
+        if (pollingService != null) {
+            pollingService.stop();
+        }
+        if ("polling".equalsIgnoreCase(mode)) {
+            pollingService.start();
+        } else {
+            startWebhookServer();
+        }
         logStartupDiagnostics();
     }
 
     private void logStartupDiagnostics() {
+        String mode = getConfig().getString("mode", "webhook");
         String host = getConfig().getString("webhook.host", "0.0.0.0");
         int port = activeWebhookPort > 0 ? activeWebhookPort : getConfig().getInt("webhook.port", 8787);
         String path = getConfig().getString("webhook.path", "/donationalerts");
         String token = getEffectiveWebhookToken();
         String tokenSource = (getConfig().getString("webhook.token", "").isBlank()) ? "donationalerts.widget-url token" : "webhook.token";
+
+        getLogger().info("Plugin mode=" + mode);
+        if (!"webhook".equalsIgnoreCase(mode)) {
+            getLogger().info("Polling status=" + (pollingService == null ? "n/a" : pollingService.getLastPollStatus()));
+            return;
+        }
 
         if (webhookServer == null) {
             getLogger().severe("Webhook server is NOT running. Check port/bind errors above.");

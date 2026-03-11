@@ -1,3 +1,5 @@
+mode: webhook  # webhook | polling
+
 webhook:
   host: 0.0.0.0
   port: 8787
@@ -19,3 +21,18 @@ items:
   hundreds: casinochips:rich_5
   tens: casinochips:rich_3
   ones: casinochips:rich
+
+
+polling:
+  enabled-note: "Use mode: polling to enable this block"
+  interval-seconds: 20
+  api-url: ""
+  token: ""
+  token-header: Authorization
+  token-prefix: "Bearer "
+  list-path: data
+  fields:
+    id: id
+    player: username
+    amount: amount
+  last-seen-id: ""
