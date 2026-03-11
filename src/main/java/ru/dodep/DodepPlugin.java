@@ -55,7 +55,7 @@ public final class DodepPlugin extends JavaPlugin {
             getLogger().severe("dodepstatus command is missing in plugin.yml");
         } else {
             statusCommand.setExecutor((sender, command, label, args) -> {
-                String mode = getConfig().getString("mode", "webhook");
+                String currentMode = getConfig().getString("mode", "webhook");
                 String host = getConfig().getString("webhook.host", "0.0.0.0");
                 int configuredPort = getConfig().getInt("webhook.port", 8787);
                 int port = activeWebhookPort > 0 ? activeWebhookPort : configuredPort;
@@ -63,7 +63,7 @@ public final class DodepPlugin extends JavaPlugin {
                 boolean configured = !getEffectiveWebhookToken().isBlank();
                 boolean webhookUp = webhookServer != null;
                 File configFile = new File(getDataFolder(), "config.yml");
-                sender.sendMessage("[Dodep] loaded=true mode=" + mode + " webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
+                sender.sendMessage("[Dodep] loaded=true mode=" + currentMode + " webhookUp=" + webhookUp + " endpoint=http://" + host + ":" + port + path + " tokenConfigured=" + configured);
                 sender.sendMessage("[Dodep] configuredPort=" + configuredPort + " activePort=" + activeWebhookPort + " configFile=" + configFile.getAbsolutePath());
                 sender.sendMessage("[Dodep] configExists=" + configFile.exists() + " lastModified=" + (configFile.exists() ? Instant.ofEpochMilli(configFile.lastModified()) : "-") + " widgetUrlPresent=" + !getConfig().getString("donationalerts.widget-url", "").isBlank());
                 if (pollingService != null) {
